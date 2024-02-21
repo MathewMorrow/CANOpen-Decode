@@ -72,7 +72,7 @@ for k = 1:12
     plot(battery(k).minCellVoltage(1,:), battery(k).minCellVoltage(2,:))
     plot(battery(k).maxCellVoltage(1,:), battery(k).maxCellVoltage(2,:))
 end
-ylim([3200, 3400])
+ylim([3000, 3600])
 title('Cell Voltages')
 ylabel('Cell Voltages (mV)')
 xlabel('Time (h)')
@@ -86,7 +86,7 @@ hold on
 for k = 1:12
     plot(battery(k).maxCellVoltage(1,:), battery(k).maxCellVoltage(2,:))
 end
-ylim([3200, 3400])
+ylim([2500, 3000])
 title('Max Cell Voltages')
 ylabel('Cell Voltages (mV)')
 xlabel('Time (h)')
@@ -100,9 +100,43 @@ hold on
 for k = 1:12
     plot(battery(k).minCellVoltage(1,:), battery(k).minCellVoltage(2,:))
 end
-ylim([3200, 3400])
+ylim([2500, 3600])
 title('Min Cell Voltages')
 ylabel('Cell Voltages (mV)')
 xlabel('Time (h)')
 legend('Battery 1', 'Battery 2', 'Battery 3', 'Battery 4', 'Battery 5', 'Battery 6','Battery 7', 'Battery 8', 'Battery 9', 'Battery 10', 'Battery 11', 'Battery 12')
+hold off
+
+%% SDO data
+
+figure Name 'Cumulative Charge'
+hold on
+for k = 1:12
+    plot(battery(k).cumChargeAh(1,:), battery(k).cumChargeAh(2,:))
+end
+title('Cumulative Charge')
+ylabel('Cumulative Charge (Ah)')
+xlabel('Time (h)')
+hold off
+
+figure Name 'Cumulative Discharge'
+hold on
+maxCumDischAhVal = 0;
+minCumDischAhVal = battery(1).cumDischAh(2,1);
+for k = 1:12
+    plot(battery(k).cumDischAh(1,:), battery(k).cumDischAh(2,:))
+    
+    for j = 1:battery(k).cumDischAhindex
+        if battery(k).cumDischAh(2,j) < minCumDischAhVal
+            minCumDischAhVal = battery(k).cumDischAh(2,j);
+        elseif battery(k).cumDischAh(2,j) > maxCumDischAhVal
+            maxCumDischAhVal = battery(k).cumDischAh(2,j);
+        end
+    end
+
+end
+% ylim([1000, 3000])
+title('Cumulative Discharge')
+ylabel('Cumulative Discharge (Ah)')
+xlabel('Time (h)')
 hold off

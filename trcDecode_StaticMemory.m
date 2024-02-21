@@ -147,7 +147,9 @@ batteryData = struct(...
     'Voltage', zeros(2,CAN_DATA_SIZE), 'Voltageindex', 0,...
     'Current', zeros(2,CAN_DATA_SIZE), 'Currentindex', 0,...
     'minCellVoltage', zeros(2,CAN_DATA_SIZE), 'minCellVoltageindex', 0,...
-    'maxCellVoltage', zeros(2,CAN_DATA_SIZE), 'maxCellVoltageindex', 0 ...
+    'maxCellVoltage', zeros(2,CAN_DATA_SIZE), 'maxCellVoltageindex', 0, ...
+    'cumChargeAh', zeros(2,CAN_DATA_SIZE), 'cumChargeAhindex', 0, ...
+    'cumDischAh', zeros(2,CAN_DATA_SIZE), 'cumDischAhindex', 0 ...
     );
 battery(1) = batteryData;
 battery(2) = batteryData;
@@ -266,6 +268,18 @@ for i = 1:numCanMessages
                 battery(messageNodeIDOffset).maxCellVoltage(:, battery(messageNodeIDOffset).maxCellVoltageindex) = [canData.TimeMs(i), canOpenDecode(SDO_maxCellVolt, canData.dataBytes(:,i)) ];
             end
 
+        elseif messageIndex == SDO_CumulativeTotalAhCharge.index
+            if messageSubIndex == SDO_CumulativeTotalAhCharge.subindex
+                battery(messageNodeIDOffset).cumChargeAhindex = battery(messageNodeIDOffset).cumChargeAhindex + 1;
+                battery(messageNodeIDOffset).cumChargeAh(:, battery(messageNodeIDOffset).cumChargeAhindex) = [canData.TimeMs(i), canOpenDecode(SDO_CumulativeTotalAhCharge, canData.dataBytes(:,i)) ];
+            end
+
+        elseif messageIndex == SDO_CumulativeTotalAhDischarge.index
+            if messageSubIndex == SDO_CumulativeTotalAhDischarge.subindex
+                battery(messageNodeIDOffset).cumDischAhindex = battery(messageNodeIDOffset).cumDischAhindex + 1;
+                battery(messageNodeIDOffset).cumDischAh(:, battery(messageNodeIDOffset).cumDischAhindex) = [canData.TimeMs(i), canOpenDecode(SDO_CumulativeTotalAhDischarge, canData.dataBytes(:,i)) ];
+            end
+
         end
     end
     
@@ -316,6 +330,8 @@ for j = 1:12
     battery(j).Current =  B427TrimData(battery(j).Current, battery(j).Currentindex);
     battery(j).minCellVoltage =  B427TrimData(battery(j).minCellVoltage, battery(j).minCellVoltageindex);
     battery(j).maxCellVoltage =  B427TrimData(battery(j).maxCellVoltage, battery(j).maxCellVoltageindex);
+    battery(j).cumChargeAh =  B427TrimData(battery(j).cumChargeAh, battery(j).cumChargeAhindex);
+    battery(j).cumDischAh =  B427TrimData(battery(j).cumDischAh, battery(j).cumDischAhindex);
 end
 
 
