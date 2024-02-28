@@ -6,22 +6,29 @@ tic
 % MATLAB is amorphous on type -- everything is stored as the type of the RHS on assignment unless directly addressing the element of an existing array of a particular type.
 % There's no concept of defining the type of the field of a struct; it takes on the type of the object stored in it on assignment.
 
+endOfHeaderStr = ";---+--   ----+----  --+--  ----+---  +  -+ -- -- -- -- -- -- --";
 CAN_DATA_SIZE = 1000000;% Max number of messages of PCAN-VIEW trace file
 % File constants
-endOfHeaderStr = ";---+--   ----+----  --+--  ----+---  +  -+ -- -- -- -- -- -- --";
-canData = struct('msgNumber', zeros(1,CAN_DATA_SIZE),'TimeMs', zeros(1,CAN_DATA_SIZE),'Typemsg', zeros(1,CAN_DATA_SIZE),'length', zeros(1,CAN_DATA_SIZE),'ID', zeros(1,CAN_DATA_SIZE),'dataBytes', zeros(8,CAN_DATA_SIZE) );
+canData = struct(...
+    'msgNumber', zeros(1,CAN_DATA_SIZE),...
+    'TimeMs', zeros(1,CAN_DATA_SIZE),...
+    'Typemsg', zeros(1,CAN_DATA_SIZE),...
+    'length', zeros(1,CAN_DATA_SIZE),...
+    'ID', zeros(1,CAN_DATA_SIZE),...
+    'dataBytes', zeros(8,CAN_DATA_SIZE)...
+    );
 %canData = canData_t;
 
 % Define format specifiers
 formatSpec = '%d) %f %*s %s %*s %d %x %x %x %x %x %x %x %x';
 % Variables
-index = 1; %index of the file being read
 numLinesInFile = 0; % Stores the number of lines (\n chars) in the file
 numCanMessages = 0; % Stores the number of messages encoded in the file
+ERROR_FLAG_BYTE = 0x80;
+errorResponseCount = 0;
 
 % Open the .trc file
-fileToOpen = uigetfile(['*.trc' ...
-    '']);
+fileToOpen = uigetfile(['*.trc']);
 disp('Opening File')
 [fileID, errmsg] = fopen(fileToOpen, "r", "s");
 disp(errmsg);
@@ -62,6 +69,7 @@ numCanMessages = numLinesInFile - i;
 
 disp('Starting File Data Import')
 displayImport = waitbar(0, sprintf('Importing Data - %d Messages Found', numLinesInFile))
+index = 1; % index of the file being read
 while ~feof(fileID)
     % Read message index number
     msgNum = fscanf(fileID, "%i)", 1);
@@ -234,51 +242,58 @@ for i = 1:numCanMessages
     % Check if its and SDO Recieve message 
     elseif messageNodeFC == functionCode_SDOResponse
         % Get index and subindex from payload
+        messageCommandByte = canData.dataBytes(1,i);
         messageIndex = typecast(uint8(canData.dataBytes(2:3,i)), 'uint16');
         messageSubIndex =  canData.dataBytes(4,i);
 
+        % Check if response is an error
+        if messageCommandByte == ERROR_FLAG_BYTE
+            errorResponseCount = errorResponseCount + 1;
+        else
+
          % SOC
-        if messageIndex == SDO_SOC.index
-            if messageSubIndex == SDO_SOC.subindex
-                battery(messageNodeIDOffset).SOCindex = battery(messageNodeIDOffset).SOCindex + 1;
-                battery(messageNodeIDOffset).SOC(:, battery(messageNodeIDOffset).SOCindex) = [canData.TimeMs(i), canOpenDecode(SDO_SOC, canData.dataBytes(:,i)) ];
-            end
-
-        elseif messageIndex == SDO_Voltage.index
-            if messageSubIndex == SDO_Voltage.subindex
-                battery(messageNodeIDOffset).Voltageindex = battery(messageNodeIDOffset).Voltageindex + 1;
-                battery(messageNodeIDOffset).Voltage(:, battery(messageNodeIDOffset).Voltageindex) = [canData.TimeMs(i), canOpenDecode(SDO_Voltage, canData.dataBytes(:,i)) ]; 
-            end
-
-        elseif messageIndex == SDO_Current.index
-            if messageSubIndex == SDO_Current.subindex
-                battery(messageNodeIDOffset).Currentindex = battery(messageNodeIDOffset).Currentindex + 1;
-                battery(messageNodeIDOffset).Current(:, battery(messageNodeIDOffset).Currentindex) = [canData.TimeMs(i), canOpenDecode(SDO_Current, canData.dataBytes(:,i)) ];
-            end
-
-        elseif messageIndex == SDO_minCellVolt.index
-            if messageSubIndex == SDO_minCellVolt.subindex
-                battery(messageNodeIDOffset).minCellVoltageindex = battery(messageNodeIDOffset).minCellVoltageindex + 1;
-                battery(messageNodeIDOffset).minCellVoltage(:, battery(messageNodeIDOffset).minCellVoltageindex) = [canData.TimeMs(i), canOpenDecode(SDO_minCellVolt, canData.dataBytes(:,i)) ];
-            end
-
-        elseif messageIndex == SDO_maxCellVolt.index
-            if messageSubIndex == SDO_maxCellVolt.subindex
-                battery(messageNodeIDOffset).maxCellVoltageindex = battery(messageNodeIDOffset).maxCellVoltageindex + 1;
-                battery(messageNodeIDOffset).maxCellVoltage(:, battery(messageNodeIDOffset).maxCellVoltageindex) = [canData.TimeMs(i), canOpenDecode(SDO_maxCellVolt, canData.dataBytes(:,i)) ];
-            end
-
-        elseif messageIndex == SDO_CumulativeTotalAhCharge.index
-            if messageSubIndex == SDO_maxCellVolt.subindex
-                battery(messageNodeIDOffset).cumChargeAhindex = battery(messageNodeIDOffset).cumChargeAhindex + 1;
-                battery(messageNodeIDOffset).cumChargeAh(:, battery(messageNodeIDOffset).cumChargeAhindex) = [canData.TimeMs(i), canOpenDecode(cumChargeAh, canData.dataBytes(:,i)) ];
-            end
-
-        elseif messageIndex == SDO_CumulativeTotalAhDischarge.index
-            if messageSubIndex == SDO_maxCellVolt.subindex
-                battery(messageNodeIDOffset).cumDischAhindex = battery(messageNodeIDOffset).cumDischAhindex + 1;
-                battery(messageNodeIDOffset).cumDischAh(:, battery(messageNodeIDOffset).cumDischAhindex) = [canData.TimeMs(i), canOpenDecode(cumDischAh, canData.dataBytes(:,i)) ];
-            end
+         if messageIndex == SDO_SOC.index
+             if messageSubIndex == SDO_SOC.subindex
+                 battery(messageNodeIDOffset).SOCindex = battery(messageNodeIDOffset).SOCindex + 1;
+                 battery(messageNodeIDOffset).SOC(:, battery(messageNodeIDOffset).SOCindex) = [canData.TimeMs(i), canOpenDecode(SDO_SOC, canData.dataBytes(:,i)) ];
+             end
+         % Voltage
+         elseif messageIndex == SDO_Voltage.index
+             if messageSubIndex == SDO_Voltage.subindex
+                 battery(messageNodeIDOffset).Voltageindex = battery(messageNodeIDOffset).Voltageindex + 1;
+                 battery(messageNodeIDOffset).Voltage(:, battery(messageNodeIDOffset).Voltageindex) = [canData.TimeMs(i), canOpenDecode(SDO_Voltage, canData.dataBytes(:,i)) ];
+             end
+         % Current
+         elseif messageIndex == SDO_Current.index
+             if messageSubIndex == SDO_Current.subindex
+                 battery(messageNodeIDOffset).Currentindex = battery(messageNodeIDOffset).Currentindex + 1;
+                 battery(messageNodeIDOffset).Current(:, battery(messageNodeIDOffset).Currentindex) = [canData.TimeMs(i), canOpenDecode(SDO_Current, canData.dataBytes(:,i)) ];
+             end
+         % Min Cell Voltage
+         elseif messageIndex == SDO_minCellVolt.index
+             if messageSubIndex == SDO_minCellVolt.subindex
+                 battery(messageNodeIDOffset).minCellVoltageindex = battery(messageNodeIDOffset).minCellVoltageindex + 1;
+                 battery(messageNodeIDOffset).minCellVoltage(:, battery(messageNodeIDOffset).minCellVoltageindex) = [canData.TimeMs(i), canOpenDecode(SDO_minCellVolt, canData.dataBytes(:,i)) ];
+             end
+         % Max Cell Voltage
+         elseif messageIndex == SDO_maxCellVolt.index
+             if messageSubIndex == SDO_maxCellVolt.subindex
+                 battery(messageNodeIDOffset).maxCellVoltageindex = battery(messageNodeIDOffset).maxCellVoltageindex + 1;
+                 battery(messageNodeIDOffset).maxCellVoltage(:, battery(messageNodeIDOffset).maxCellVoltageindex) = [canData.TimeMs(i), canOpenDecode(SDO_maxCellVolt, canData.dataBytes(:,i)) ];
+             end
+         % Cumulative Charge
+         elseif messageIndex == SDO_CumulativeTotalAhCharge.index
+             if messageSubIndex == SDO_CumulativeTotalAhCharge.subindex
+                 battery(messageNodeIDOffset).cumChargeAhindex = battery(messageNodeIDOffset).cumChargeAhindex + 1;
+                 battery(messageNodeIDOffset).cumChargeAh(:, battery(messageNodeIDOffset).cumChargeAhindex) = [canData.TimeMs(i), canOpenDecode(SDO_CumulativeTotalAhCharge, canData.dataBytes(:,i)) ];
+             end
+         % Cumulative Discharge
+         elseif messageIndex == SDO_CumulativeTotalAhDischarge.index
+             if messageSubIndex == SDO_CumulativeTotalAhDischarge.subindex
+                 battery(messageNodeIDOffset).cumDischAhindex = battery(messageNodeIDOffset).cumDischAhindex + 1;
+                 battery(messageNodeIDOffset).cumDischAh(:, battery(messageNodeIDOffset).cumDischAhindex) = [canData.TimeMs(i), canOpenDecode(SDO_CumulativeTotalAhDischarge, canData.dataBytes(:,i)) ];
+             end
+        end
 
         end
     end
@@ -330,8 +345,8 @@ for j = 1:12
     battery(j).Current =  B427TrimData(battery(j).Current, battery(j).Currentindex);
     battery(j).minCellVoltage =  B427TrimData(battery(j).minCellVoltage, battery(j).minCellVoltageindex);
     battery(j).maxCellVoltage =  B427TrimData(battery(j).maxCellVoltage, battery(j).maxCellVoltageindex);
-    battery(j).cumDischAh =  B427TrimData(battery(j).cumDischAh, battery(j).cumDischAh);
-    battery(j).cumChargeAh =  B427TrimData(battery(j).cumChargeAh, battery(j).cumChargeAh);
+    battery(j).cumChargeAh =  B427TrimData(battery(j).cumChargeAh, battery(j).cumChargeAhindex);
+    battery(j).cumDischAh =  B427TrimData(battery(j).cumDischAh, battery(j).cumDischAhindex);
 end
 
 
@@ -339,9 +354,17 @@ scriptTime = toc
 
 
 
+%% Log total time in hours
+totalTimeHours = (TPDO1.VB_numBatts(1,end) - TPDO1.VB_numBatts(1,1)) / 1000 / 60 / 60
 
+%% Battery Discharge and Charge Ah deltas for each battery
 
-
+batteryCumulDischargeAh = zeros(12,1);
+batteryCumulChargeAh = zeros(12,1);
+for j = 1:12
+    batteryCumulDischargeAh(j) = battery(j).cumDischAh(2,end) - battery(j).cumDischAh(2,1);
+    batteryCumulChargeAh(j) = battery(j).cumChargeAh(2,end) - battery(j).cumChargeAh(2,1);
+end
 
 
 
